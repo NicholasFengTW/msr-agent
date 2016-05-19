@@ -9,12 +9,11 @@
  * published by the Free Software Foundation.
  */
 
-#define LINUX_MSR_DRIVER_PATH "/dev/cpu/%d/msr"
-#define MAX_SUPPORTED_CORES 64
-#define MAX_SUPPORTED_PATH 64
-
-
 
 void print_program_header();
-
 void printhelp();
+void print_errmsg(int errno);
+void msr_handle_install();
+void msr_handle_uninstall();
+void op_msr_read();
+void op_msr_write();
