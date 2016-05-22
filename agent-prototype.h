@@ -5,7 +5,7 @@
  *  Copyright (c) 2016 Nicholas Feng <nicholasfeng.tw@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
+ * it under the terms of the GNU General Public License version 3 as
  * published by the Free Software Foundation.
  */
 
