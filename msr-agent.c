@@ -34,26 +34,50 @@
 // global variable
 int CpuCountsOnline;
 const char *this;
-static const char short_op_str[] = "hRvrwapc0";
+static const char short_op_str[] = "hRvrwac0";
 static const struct option long_op_str[] = {
 	{"help",		      0, 0, 'h'},
-	{"revision",		  0, 0, 'R'},
+	{"Revision",		  0, 0, 'R'},
 	{"verbose",		    0, 0, 'v'},
 	{"read",		      0, 0, 'r'},
 	{"write",   		  0, 0, 'w'},
 	{"all",			      0, 0, 'a'},
-	{"processor",		  1, 0, 'p'},
-	{"cpu",			      1, 0, 'c'},
+	{"cpu",			      0, 0, 'c'},
 	{ 0,              0, 0,  0 }
 };
 
 uint64_t glbMSRvalue;
 uint64_t *ptrglbMSRvalue = NULL;
 bool allCpu = false;
+uint64_t specificCPU = MAX_SUPPORTED_CORES+1 ;
 
 struct msr_main_handle main_handle;
 char errstr [MAX_STRENG_LENGTH];
 
+
+void initialize_global_variable(int argc, char *argv[])
+{
+	int iCmdLineParam;
+
+  CpuCountsOnline = sysconf(_SC_NPROCESSORS_ONLN);
+//#if MSR_AGENT_DEBUG
+#if 0
+	fprintf(stdout, "CpuCore(Online): 0x%X\n", CpuCountsOnline);
+#endif
+
+	msr_handle_install();
+
+// set global flag first
+while((iCmdLineParam = getopt_long(argc, argv, short_op_str, long_op_str, NULL)) != -1) {
+	 if(iCmdLineParam == 'a'){
+			allCpu = true;
+			break;
+	 }
+}
+
+// reset optind
+optind = 0;
+}
 
 // code section
 int main(int argc, char *argv[])
@@ -64,52 +88,61 @@ int main(int argc, char *argv[])
 
   this = argv[0];
 
-  CpuCountsOnline = sysconf(_SC_NPROCESSORS_ONLN);
-  msr_handle_install();
-//#if MSR_AGENT_DEBUG
-#if 0
-  fprintf(stdout, "CpuCore(Online): 0x%X\n", CpuCountsOnline);
-#endif
+	initialize_global_variable(argc, argv);
 
-	// set global flag first
-  while((iCmdLineParam = getopt_long(argc, argv, short_op_str, long_op_str, NULL)) != -1) {
-     if(iCmdLineParam == 'a'){
-        allCpu = true;
-        break;
-		 }
-  }
 
-	// reset optind
-	optind = 0;
+
 
   while((iCmdLineParam = getopt_long(argc, argv, short_op_str, long_op_str, NULL)) != -1){
    switch(iCmdLineParam){
      case 'h':
-
        printhelp();
 		   exit(EXIT_SUCCESS);
 
-		 case 'V':
+		 case 'R':
+       fprintf(stdout, VERSION_STRING_MSR_AGENT);
+			 exit(EXIT_SUCCESS);
 
-     print_program_header();
-			exit(EXIT_SUCCESS);
+		 case 'v':
+			 error_handler(FUNCTION_NOT_IMPLIMENTED);
+			 exit(EXIT_SUCCESS);
+
+		 case 'p':
+       error_handler(FUNCTION_NOT_IMPLIMENTED);
+       exit(EXIT_SUCCESS);
 
      case 'r':
- 		  print_program_header();
-	    msroffset = strtoul(argv[optind], NULL, 0);
+		   if (optind < argc ) {
+	       msroffset = strtoul(argv[optind], NULL, 0);
+		   } else {
+         error_handler(LACK_OF_ARGUMENT);
+				 exit(EXIT_INCORRECT_USAGE);
+		  }
+
 			if(allCpu){
 			  for(iCoreNum = 0; (iCoreNum < CpuCountsOnline) && (iCoreNum < MAX_SUPPORTED_CORES); iCoreNum++){
 				  	 op_msr_read(iCoreNum, msroffset, ptrglbMSRvalue);
 			  }
       } else {
-				op_msr_read(0, msroffset, ptrglbMSRvalue);
+
+				if(specificCPU == MAX_SUPPORTED_CORES+1) {
+				    op_msr_read(0, msroffset, ptrglbMSRvalue);
+			  } else {
+            op_msr_read(specificCPU, msroffset, ptrglbMSRvalue);
+				}
+
 			}
 			break;
 
      case 'w':
-  		print_program_header();
- 	    msroffset = strtoul(argv[optind], NULL, 0);
-			*ptrglbMSRvalue = strtoul(argv[optind+1], NULL, 0);
+		     if (optind < argc - 1 ) {
+ 	           msroffset = strtoul(argv[optind], NULL, 0);
+			       *ptrglbMSRvalue = strtoul(argv[optind+1], NULL, 0);
+         } else {
+             error_handler(LACK_OF_ARGUMENT);
+             exit(EXIT_INCORRECT_USAGE);
+         }
+
 			if(allCpu){
  			  for(iCoreNum = 0; (iCoreNum < CpuCountsOnline) && (iCoreNum < MAX_SUPPORTED_CORES); iCoreNum++){
  				  	 op_msr_write(iCoreNum, msroffset, ptrglbMSRvalue);
@@ -124,6 +157,7 @@ int main(int argc, char *argv[])
        break;
 
      default:
+		   print_program_header();
        printhelp();
        exit(EXIT_SUCCESS);
 
@@ -138,11 +172,8 @@ int main(int argc, char *argv[])
 
 void print_program_header()
 {
-	//fprintf(stdout, "\n");
   fprintf(stdout, VERSION_STRING_MSR_AGENT);
   fprintf(stdout, COPYRIGHT_STRING);
-//fprintf(stderr, STRING_MSR_AGENT "\n");
-
 }
 
 void printhelp()
@@ -155,13 +186,28 @@ void printhelp()
     "  --read         -r  Read MSR\n"
     "  --write        -w  Write MSR\n"
 		"  --all          -a  To access MSR of all processors\n"
-		"  --processor #  -p  To access MSR of specific processor (processor #0 as default)\n"
+		"  --cpu #        -c  To access MSR of specific core (core #0 as default)\n"
   );
 }
 
-void print_errmsg(int errno)
+void error_handler(int errnumber)
 {
 
+	switch(errnumber){
+		case LACK_OF_ARGUMENT:
+	     fprintf(stderr, STRING_ERR_LACK_OF_PARAMETER );
+       break;
+
+    case FUNCTION_NOT_IMPLIMENTED:
+       fprintf(stderr, STRING_ERR_FUNCTION_NOT_IMPLIMENTED );
+       break;
+
+		case GENERAL_ERROR:
+		default:
+		   fprintf(stderr, STRING_ERR_GENERAL_ERROR );
+		 break;
+
+   }
 
 }
 

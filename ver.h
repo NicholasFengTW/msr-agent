@@ -22,4 +22,10 @@
 #define STRING_PCI_AGENT "pci-agent"
 #define VERSION_STRING_PCI_AGENT VERSION_STRING_PCI_AGENT VERSION_STRING STRING_NEWLINE
 
+
+// string definition for error handling
+#define STRING_ERR_FUNCTION_NOT_IMPLIMENTED "Function is not implimented yet!\n"
+#define STRING_ERR_LACK_OF_PARAMETER "Command lacks of argument!\n"
+#define STRING_ERR_GENERAL_ERROR "Something Error!\n"
+
 #endif

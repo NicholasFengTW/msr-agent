@@ -33,4 +33,9 @@ struct msr_main_handle {
   struct msr_handle msr_fd[MAX_SUPPORTED_CORES];
 } msr_main_handle_default = {0, false, };
 
-//typedef struct msr_main_handle pcmbfs_perf_recd;
+
+typedef enum {
+    GENERAL_ERROR = 0x80000000,
+    LACK_OF_ARGUMENT,
+    FUNCTION_NOT_IMPLIMENTED
+} msr_agent_error;

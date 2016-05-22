@@ -12,7 +12,7 @@
 
 void print_program_header();
 void printhelp();
-void print_errmsg(int errno);
+void error_handler(int errnumber);
 void msr_handle_install();
 void msr_handle_uninstall();
 void op_msr_read();
