@@ -9,7 +9,7 @@
  * published by the Free Software Foundation.
  */
 
-
+void initialize_global_variable(int argc, char *argv[]);
 void print_program_header();
 void printhelp();
 void error_handler(int errnumber);

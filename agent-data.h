@@ -9,7 +9,7 @@
  * published by the Free Software Foundation.
  */
 
-#define MSR_AGENT_DEBUG 1
+#define MSR_AGENT_DEBUG 0
 #define LINUX_MSR_DRIVER_PATH "/dev/cpu/%d/msr"
 #define MAX_SUPPORTED_CORES 64
 #define MAX_SUPPORTED_PATH 64

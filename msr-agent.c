@@ -34,32 +34,35 @@
 // global variable
 int CpuCountsOnline;
 const char *this;
-static const char short_op_str[] = "hRvrwac0";
+static const char short_op_str[] = "hRVr:w:v:ac:";
 static const struct option long_op_str[] = {
 	{"help",		      0, 0, 'h'},
-	{"Revision",		  0, 0, 'R'},
-	{"verbose",		    0, 0, 'v'},
-	{"read",		      0, 0, 'r'},
-	{"write",   		  0, 0, 'w'},
+	{"revision",		  0, 0, 'R'},
+	{"verbose",		    0, 0, 'V'},
+	{"read",		      1, 0, 'r'},
+	{"write",   		  1, 0, 'w'},
+	{"value",   		  1, 0, 'v'},
 	{"all",			      0, 0, 'a'},
-	{"cpu",			      0, 0, 'c'},
+	{"cpu",			      1, 0, 'c'},
 	{ 0,              0, 0,  0 }
 };
 
 uint64_t glbMSRvalue;
-uint64_t *ptrglbMSRvalue = NULL;
+uint64_t *ptrglbMSRvalue = &glbMSRvalue;
 bool allCpu = false;
+bool verboseMode = false;
 uint64_t specificCPU = MAX_SUPPORTED_CORES+1 ;
 
 struct msr_main_handle main_handle;
 char errstr [MAX_STRENG_LENGTH];
-
 
 void initialize_global_variable(int argc, char *argv[])
 {
 	int iCmdLineParam;
 
   CpuCountsOnline = sysconf(_SC_NPROCESSORS_ONLN);
+	specificCPU = 0;
+
 //#if MSR_AGENT_DEBUG
 #if 0
 	fprintf(stdout, "CpuCore(Online): 0x%X\n", CpuCountsOnline);
@@ -67,16 +70,29 @@ void initialize_global_variable(int argc, char *argv[])
 
 	msr_handle_install();
 
-// set global flag first
-while((iCmdLineParam = getopt_long(argc, argv, short_op_str, long_op_str, NULL)) != -1) {
-	 if(iCmdLineParam == 'a'){
-			allCpu = true;
-			break;
-	 }
-}
+  // set global flag first
+  while((iCmdLineParam = getopt_long(argc, argv, short_op_str, long_op_str, NULL)) != -1) {
+    switch(iCmdLineParam){
+		   case 'a':
+           allCpu = true;
+           break;
+		   case 'c':
+           specificCPU = strtoul(optarg, NULL, 0);
+           break;
+       case 'v':
+           *ptrglbMSRvalue = strtoul(optarg, NULL, 0);
+           break;
+			 case 'V':
+		       verboseMode = true;
+		       break;
+		   default:
+		       break;
+	   }
+  }
 
-// reset optind
-optind = 0;
+  // reset optind
+  optind = 0;
+
 }
 
 // code section
@@ -90,9 +106,6 @@ int main(int argc, char *argv[])
 
 	initialize_global_variable(argc, argv);
 
-
-
-
   while((iCmdLineParam = getopt_long(argc, argv, short_op_str, long_op_str, NULL)) != -1){
    switch(iCmdLineParam){
      case 'h':
@@ -102,18 +115,19 @@ int main(int argc, char *argv[])
 		 case 'R':
        fprintf(stdout, VERSION_STRING_MSR_AGENT);
 			 exit(EXIT_SUCCESS);
+     // dummy >>
+		 case 'V':
+			break;
 
 		 case 'v':
-			 error_handler(FUNCTION_NOT_IMPLIMENTED);
-			 exit(EXIT_SUCCESS);
+		  break;
 
-		 case 'p':
-       error_handler(FUNCTION_NOT_IMPLIMENTED);
-       exit(EXIT_SUCCESS);
-
+		 case 'c':
+		  break;
+     // dummy <<
      case 'r':
-		   if (optind < argc ) {
-	       msroffset = strtoul(argv[optind], NULL, 0);
+		   if ( optind <= argc ) {
+         msroffset = strtoul(optarg, NULL, 0);
 		   } else {
          error_handler(LACK_OF_ARGUMENT);
 				 exit(EXIT_INCORRECT_USAGE);
@@ -124,33 +138,32 @@ int main(int argc, char *argv[])
 				  	 op_msr_read(iCoreNum, msroffset, ptrglbMSRvalue);
 			  }
       } else {
-
-				if(specificCPU == MAX_SUPPORTED_CORES+1) {
-				    op_msr_read(0, msroffset, ptrglbMSRvalue);
-			  } else {
             op_msr_read(specificCPU, msroffset, ptrglbMSRvalue);
-				}
-
 			}
+
+			// add padding
+			if(!verboseMode) {
+				 fprintf(stdout, "\n");
+			 }
+
 			break;
 
      case 'w':
-		     if (optind < argc - 1 ) {
- 	           msroffset = strtoul(argv[optind], NULL, 0);
-			       *ptrglbMSRvalue = strtoul(argv[optind+1], NULL, 0);
+		     if ( optind <= argc  ) {
+ 	           msroffset = strtoul(optarg, NULL, 0);
          } else {
              error_handler(LACK_OF_ARGUMENT);
              exit(EXIT_INCORRECT_USAGE);
          }
 
-			if(allCpu){
- 			  for(iCoreNum = 0; (iCoreNum < CpuCountsOnline) && (iCoreNum < MAX_SUPPORTED_CORES); iCoreNum++){
+			  if(allCpu){
+ 	  		  for(iCoreNum = 0; (iCoreNum < CpuCountsOnline) && (iCoreNum < MAX_SUPPORTED_CORES); iCoreNum++){
  				  	 op_msr_write(iCoreNum, msroffset, ptrglbMSRvalue);
- 			  }
-		  } else {
-        op_msr_write(0, msroffset, ptrglbMSRvalue);
-			}
-     break;
+   			  }
+  		  } else {
+             op_msr_write(specificCPU, msroffset, ptrglbMSRvalue);
+	  		}
+        break;
 
      case 'a':
 		   // dummy
@@ -182,11 +195,12 @@ void printhelp()
 		"Usage: [options] MSR#\n"
 		"  --help         -h  Print help message.\n"
 		"  --revision     -R  Show reversion.\n"
-		"  --verbose      -V  Verbose mode\n"
-    "  --read         -r  Read MSR\n"
-    "  --write        -w  Write MSR\n"
+		"  --verbose      -V  Verbose mode.\n"
+    "  --read         -r  Read MSR.\n"
+    "  --write        -w  Write MSR.\n"
+		"  --value        -w  Write MSR with an assigned value.\n"
 		"  --all          -a  To access MSR of all processors\n"
-		"  --cpu #        -c  To access MSR of specific core (core #0 as default)\n"
+		"  --cpu #        -c  To access MSR of a specific core (core #0 as default if not specify).\n"
   );
 }
 
@@ -231,11 +245,8 @@ void msr_handle_install()
 
           // Set Valid bit if the handle is usable
         if(main_handle.msr_fd[iCoreNum].FdMsr > 0) {
-
             main_handle.msr_fd[iCoreNum].IsFdValid = true;
-
           } else { //  if(main_handle.msr_fd[iCoreNum].FdMsr > 0)
-
             main_handle.msr_fd[iCoreNum].IsFdValid = false;
 
             if(errno) {
@@ -263,12 +274,9 @@ void msr_handle_install()
       } // if(main_handle.msr_fd[iCoreNum].FdMsr == 0)
   } // for(CoreNum = 0; (CoreNum < MaxActiveCores) && (CoreNum < MAX_SUPPORTED_CORES); CoreNum++)
 
-//#if MSR_AGENT_DEBUG
-#if 0
+#if MSR_AGENT_DEBUG
   for(iCoreNum = 0; (iCoreNum < CpuCountsOnline) && (iCoreNum < MAX_SUPPORTED_CORES); iCoreNum++){
-
-  fprintf(stdout, "main_handle.msr_fd[0x%X].FdMsr=0x%X\n", iCoreNum, main_handle.msr_fd[iCoreNum].FdMsr);
-
+      fprintf(stdout, "main_handle.msr_fd[0x%X].FdMsr=0x%X\n", iCoreNum, main_handle.msr_fd[iCoreNum].FdMsr);
   } // for(iCoreNum = 0; (iCoreNum < CpuCountsOnline) && (iCoreNum < MAX_SUPPORTED_CORES); iCoreNum++)
 #endif // MSR_AGENT_DEBUG
 }
@@ -278,8 +286,7 @@ void msr_handle_uninstall()
   int iCoreNum = 0;
 
   for(iCoreNum = 0; (iCoreNum < CpuCountsOnline) && (iCoreNum < MAX_SUPPORTED_CORES); iCoreNum++){
-    if(main_handle.msr_fd[iCoreNum].IsFdValid == true)
-    {
+    if(main_handle.msr_fd[iCoreNum].IsFdValid == true) {
       main_handle.msr_fd[iCoreNum].IsFdValid = false;
       close(main_handle.msr_fd[iCoreNum].FdMsr);
       main_handle.msr_fd[iCoreNum].FdMsr = 0;
@@ -301,12 +308,18 @@ void op_msr_read(int cpu, int msr_number, uint64_t * value)
     }
   }
 
-//#if MSR_AGENT_DEBUG
-	fprintf(stdout, "op_msr_read - cpu#%x-msr(0x%X) = 0x%llX \n", cpu, msr_number, *value);
-//#endif
+	if(verboseMode) {
+     fprintf(stdout, "Read MSR 0x%X of CPU %d successfully, actual value is 0x%llX\n", msr_number, cpu, *value);
+  } else {
+     fprintf(stdout, "0x%llX ",*value);
+  }
+
 }
 
 void op_msr_write(int cpu, int msr_number, uint64_t *value){
+
+  uint64_t actvalue = 0;
+  uint64_t* ptractvalue = &actvalue;
 
   if( pwrite(main_handle.msr_fd[cpu].FdMsr, value, sizeof(uint64_t), msr_number) != sizeof(*value) )
   {
@@ -318,4 +331,10 @@ void op_msr_write(int cpu, int msr_number, uint64_t *value){
       exit(EXIT_COMMAND_NOT_FOUND);
     }
 	}
+
+	if(verboseMode) {
+ 	  pread(main_handle.msr_fd[cpu].FdMsr, ptractvalue, sizeof(uint64_t), msr_number);
+     fprintf(stdout, "Write MSR 0x%X of CPU %d successfully, actual value is 0x%llX\n", msr_number, cpu, *ptractvalue);
+  }
+
 }
